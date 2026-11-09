@@ -1,5 +1,7 @@
 # Compteur LED · DMX
 
+![Compteur LED · DMX : les trois habillages Pupitre, Flight case et Plan de feux](docs/apercu.png)
+
 Appli web mobile pour préparer le patch de bandeaux LED : nombre de LEDs, canaux, univers DMX et prix, avec un aperçu lumineux à l'échelle.
 
 Version **0.8**.
