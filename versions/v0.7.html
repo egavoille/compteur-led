@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>Compteur LED DMX</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout : colonne unique type « patch sheet », résumé collant en haut, bandeaux dessinés à l'échelle */
+:root{
+  --bg:#eceff2; --surface:#ffffff; --sunk:#e2e6ea; --fg:#14181d; --muted:#5a6470; --line:#d2d8de;
+  --accent:#c9770f; --accent-ink:#1b1104; --accent-soft:#f6e3c6;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --u0:#3b82f6;--u1:#22a86e;--u2:#e04a4f;--u3:#9466ea;--u4:#d99a0b;--u5:#13a8b8;--u6:#d6528f;--u7:#7fa61a;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1114; --surface:#171b20; --sunk:#0b0d10; --fg:#e7eaee; --muted:#8d97a2; --line:#2a3139;
+  --accent:#f0a23b; --accent-ink:#1b1104; --accent-soft:#3a2a12; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1114; --surface:#171b20; --sunk:#0b0d10; --fg:#e7eaee; --muted:#8d97a2; --line:#2a3139;
+  --accent:#f0a23b; --accent-ink:#1b1104; --accent-soft:#3a2a12; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.4;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* Résumé */
+.summary{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line);
+  margin-left:calc(-1 * max(16px,env(safe-area-inset-left,0px)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right,0px)));
+  padding:10px max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px))}
+.sum-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+h1{font-family:var(--f-display);font-weight:700;font-size:1.05rem;letter-spacing:.08em;text-transform:uppercase;margin:0;color:var(--muted)}
+.copy{border:1px solid var(--line);background:transparent;border-radius:6px;padding:4px 10px;font-size:.8rem;font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px}
+.stat{min-width:0}
+.stat b{display:block;font-family:var(--f-mono);font-weight:700;font-size:1.35rem;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat span{font-family:var(--f-display);font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.stat.hl b{color:var(--accent)}
+
+/* Sections */
+section{margin-top:22px}
+h2{font-family:var(--f-display);font-weight:600;font-size:.82rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.set{display:grid;gap:0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-top:1px solid var(--line);flex-wrap:wrap}
+.row:first-child{border-top:0}
+.row label,.lbl{font-weight:600}
+.lbl small{display:block;font-weight:400;color:var(--muted);font-size:.8rem}
+
+.stepper{display:flex;align-items:center;background:var(--sunk);border-radius:8px;overflow:hidden}
+.stepper button{width:42px;height:42px;border:0;background:transparent;font-size:1.3rem;font-weight:600}
+.stepper button:active{background:var(--line)}
+.stepper input{width:64px;height:42px;border:0;background:transparent;text-align:center;font-family:var(--f-mono);font-weight:700;font-size:1.05rem;-moz-appearance:textfield}
+.stepper input::-webkit-inner-spin-button,.stepper input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 13px;font-weight:600;font-size:.9rem;min-height:38px}
+.chip small{font-weight:400;color:var(--muted);margin-left:3px}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip[aria-pressed="true"] small{color:var(--accent-ink);opacity:.75}
+.chip-input{display:flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:0 6px 0 12px;min-height:38px;background:var(--surface)}
+.chip-input input{width:52px;border:0;background:transparent;font-family:var(--f-mono);font-weight:700;text-align:right;-moz-appearance:textfield}
+.chip-input input::-webkit-inner-spin-button{-webkit-appearance:none}
+.chip-input span{font-size:.8rem;color:var(--muted)}
+.chip-input.on{border-color:var(--accent);background:var(--accent-soft)}
+
+.seg2{display:flex;background:var(--sunk);border-radius:8px;padding:3px;gap:3px;width:100%}
+.seg2 button{flex:1;border:0;background:transparent;border-radius:6px;padding:10px 8px;font-weight:600;font-size:.9rem;display:flex;align-items:center;justify-content:center;gap:6px}
+.seg2 button[aria-pressed="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.seg2 svg{width:18px;height:18px}
+
+.small-btn{border:1px solid var(--line);background:transparent;border-radius:6px;padding:7px 10px;font-weight:600;font-size:.82rem}
+.adv{color:var(--muted);font-size:.85rem}
+details summary{cursor:pointer;padding:12px 14px;font-weight:600;color:var(--muted);list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:"▸ ";}
+details[open] summary::before{content:"▾ ";}
+
+/* Bandeaux */
+.strips{display:flex;flex-direction:column}
+.strip{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px 10px}
+.strip-head{display:flex;align-items:center;gap:10px}
+.sname{font-family:var(--f-display);font-weight:700;font-size:1.25rem;min-width:2.2em}
+.strip .stepper button{width:38px;height:38px;font-size:1.15rem}
+.strip .stepper input{width:58px;height:38px;font-size:.98rem}
+.strip .stepper .u{font-size:.8rem;color:var(--muted);padding-right:2px}
+.spx{margin-left:auto;text-align:right;line-height:1.1}
+.spx b{font-family:var(--f-mono);font-size:1.1rem;font-variant-numeric:tabular-nums}
+.spx span{display:block;font-size:.72rem;color:var(--muted)}
+.track{margin-top:10px;height:22px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.bar{display:flex;height:100%;min-width:4px;gap:2px}
+.bar i{display:flex;align-items:center;justify-content:center;font-style:normal;font-family:var(--f-mono);font-size:.68rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;
+  background-image:radial-gradient(circle,rgba(255,255,255,.55) 1.4px,transparent 1.9px);background-size:7px 100%;background-position:3px 50%;min-width:3px}
+.bar i b{background:rgba(0,0,0,.35);border-radius:3px;padding:0 4px;line-height:1.3}
+.addr{margin-top:7px;display:flex;flex-wrap:wrap;gap:4px 12px;font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+.addr span{display:inline-flex;align-items:center;gap:5px}
+.addr em{width:8px;height:8px;border-radius:2px;display:inline-block}
+.addr strong{color:var(--fg);font-weight:700}
+
+.link{align-self:center;display:flex;align-items:center;gap:7px;margin:5px 0;border:1px dashed var(--line);background:transparent;border-radius:999px;padding:6px 14px;font-size:.82rem;font-weight:600;color:var(--muted);position:relative}
+.link::before,.link::after{content:"";position:absolute;left:50%;width:2px;height:6px;background:var(--line)}
+.link::before{top:-6px}.link::after{bottom:-6px}
+.link svg{width:16px;height:16px}
+.link.on{border-style:solid;border-color:var(--accent);color:var(--fg);background:var(--accent-soft)}
+.link.on::before,.link.on::after{background:var(--accent)}
+
+/* Univers */
+.unis{display:flex;flex-direction:column;gap:0}
+.uni{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;padding:10px 14px;border-top:1px solid var(--line);align-items:center}
+.uni:first-child{border-top:0}
+.utag{font-family:var(--f-mono);font-weight:700;font-size:.85rem;color:#fff;border-radius:5px;padding:3px 7px;text-align:center;min-width:3.2em}
+.utrack{position:relative;height:16px;background:var(--sunk);border-radius:4px;overflow:hidden}
+.utrack i{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:.62rem;font-weight:700;color:#fff;font-family:var(--f-mono);overflow:hidden;border-right:2px solid var(--surface)}
+.uinfo{grid-column:2;font-family:var(--f-mono);font-size:.74rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+
+.foot{margin-top:18px;font-size:.8rem;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:999px;font-weight:600;font-size:.85rem;z-index:20}
+.copybox{width:100%;min-height:120px;margin-top:8px;font-family:var(--f-mono);font-size:.75rem;border:1px solid var(--line);border-radius:8px;background:var(--sunk);padding:8px}
+@media (max-width:380px){.stat b{font-size:1.1rem}.strip .stepper input{width:48px}}
+@media (prefers-reduced-motion:no-preference){.bar i,.utrack i{transition:filter .2s}.chip,.link{transition:background .15s,border-color .15s}}
+.preview{background:#06080a;border:1px solid #1c2229;border-radius:10px;padding:10px;color:#c9d1d9;color-scheme:dark}
+.pv-ctrl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
+.pv-chip{border:1px solid #2a323b;background:#10151a;color:#c9d1d9;border-radius:999px;padding:7px 12px;font-weight:600;font-size:.82rem;min-height:34px}
+.pv-chip[aria-pressed="true"]{background:#f0a23b;border-color:#f0a23b;color:#1b1104}
+.pv-color{width:38px;height:34px;border:1px solid #2a323b;border-radius:8px;background:#10151a;padding:2px}
+.pv-int{display:flex;align-items:center;gap:8px;font-size:.78rem;color:#8d97a2;width:100%}
+.pv-int input{flex:1;accent-color:#f0a23b}
+.pv-wrap{overflow:hidden;border-radius:6px}
+#pv{display:block;width:100%}
+.pv-note{font-size:.75rem;color:#8d97a2;margin-top:8px}
+.rc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.rc-g{padding:12px 14px;border-bottom:1px solid var(--line);min-width:0}
+.rc-g h3{margin:0 0 6px;font-family:var(--f-display);font-weight:700;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:.88rem;border-bottom:1px dotted var(--line)}
+.kv:last-child{border-bottom:0}
+.kv span{color:var(--muted)}
+.kv b{font-family:var(--f-mono);font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.kv.big b{color:var(--accent);font-size:1.05rem}
+.rc-table{overflow-x:auto}
+.rc-table table{width:100%;border-collapse:collapse;font-family:var(--f-mono);font-size:.78rem;font-variant-numeric:tabular-nums}
+.rc-table th{font-family:var(--f-display);font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:.72rem;color:var(--muted);text-align:right;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.rc-table td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.rc-table th:first-child,.rc-table td:first-child{text-align:left}
+.rc-table tfoot td{font-weight:700;border-bottom:0}
+.price-ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;width:100%}
+.price-ctl .seg2{width:auto;flex:1;min-width:190px}
+.dual{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.dual .stepper{min-width:0;border:1px solid transparent}
+.dual .stepper input{flex:1;min-width:0;width:auto}
+.dual .stepper.src{border-color:var(--accent)}
+.dual .stepper .u{padding-right:4px;font-size:.75rem}
+.strip .dual .stepper button{width:34px}
+.unit{border:0;background:var(--surface);border-radius:5px;height:28px;padding:0 7px;font-size:.78rem;font-weight:700;color:var(--accent);margin-right:2px;min-width:40px}
+.unit:active{background:var(--line)}
+.joint{display:flex;flex-direction:column;align-items:center;gap:6px;margin:5px 0}
+.joint .link{margin:0}
+.unipick{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:4px 4px 4px 12px}
+.unipick{flex-wrap:wrap;justify-content:center;row-gap:6px}
+.unipick .lbl{font-size:.82rem}
+.unipick .lbl small{font-size:.72rem}
+.unipick .stepper button{width:36px;height:36px}
+.unipick .stepper input{width:58px;height:36px}
+.unipick .stepper input.auto{color:var(--muted);font-weight:500}
+.autobtn{border:0;background:transparent;color:var(--accent);font-weight:600;font-size:.78rem;padding:6px 8px}
+.cut{color:var(--accent);font-weight:700}
+.warn{color:var(--u2)!important;font-weight:700}
+.uni.bad{background:color-mix(in srgb,var(--u2) 12%,transparent)}
+.alert{margin-top:10px;border:1px solid var(--u2);color:var(--fg);background:color-mix(in srgb,var(--u2) 12%,var(--surface));border-radius:8px;padding:8px 12px;font-size:.85rem}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="summary">
+    <div class="sum-top">
+      <h1>Compteur LED · DMX <span style="font-family:var(--f-mono);font-size:.7rem;letter-spacing:0;color:var(--accent)">v0.7</span></h1>
+      <button class="copy" id="copyBtn" type="button">Copier le patch</button>
+    </div>
+    <div class="stats">
+      <div class="stat hl"><b id="sLed">0</b><span>LEDs</span></div>
+      <div class="stat"><b id="sUni">0</b><span id="sUniL">Univers</span></div>
+      <div class="stat"><b id="sCh">0</b><span>Canaux</span></div>
+      <div class="stat"><b id="sM">0</b><span>Mètres</span></div>
+    </div>
+    <div class="alert" id="alert" hidden></div>
+  </header>
+
+  <section>
+    <h2>Réglages</h2>
+    <div class="card set">
+      <div class="row">
+        <span class="lbl">Bandeaux</span>
+        <div class="stepper">
+          <button type="button" data-act="n" data-d="-1" aria-label="Retirer un bandeau">−</button>
+          <input id="nIn" type="number" inputmode="numeric" min="1" max="128" aria-label="Nombre de bandeaux">
+          <button type="button" data-act="n" data-d="1" aria-label="Ajouter un bandeau">+</button>
+        </div>
+      </div>
+      <div class="row">
+        <span class="lbl">LEDs par mètre</span>
+        <div class="chips" id="densChips"></div>
+      </div>
+      <div class="row">
+        <span class="lbl">Type de LED</span>
+        <div class="chips" id="cppChips"></div>
+      </div>
+      <div class="row">
+        <span class="lbl">LED coupée entre deux univers<small>Une LED peut avoir ses canaux sur deux univers</small></span>
+        <div class="seg2" id="splitSeg">
+          <button type="button" data-act="split" data-v="1">Autorisée</button>
+          <button type="button" data-act="split" data-v="0">Interdite</button>
+        </div>
+      </div>
+      <div class="row">
+        <span class="lbl">Univers de départ<small>Du premier bandeau</small></span>
+        <div class="stepper">
+          <button type="button" data-act="su" data-d="-1" aria-label="Univers précédent">−</button>
+          <input id="suIn" type="number" inputmode="numeric" min="0" max="63999" aria-label="Univers de départ">
+          <button type="button" data-act="su" data-d="1" aria-label="Univers suivant">+</button>
+        </div>
+      </div>
+      <div class="row">
+        <span class="lbl">Canal de départ<small>Du premier bandeau, dans son univers</small></span>
+        <div class="stepper">
+          <button type="button" data-act="sa" data-d="-1" aria-label="Canal précédent">−</button>
+          <input id="saIn" type="number" inputmode="numeric" min="1" max="512" aria-label="Canal de départ">
+          <button type="button" data-act="sa" data-d="1" aria-label="Canal suivant">+</button>
+        </div>
+      </div>
+      <div class="row">
+        <span class="lbl">Bandeaux liés<small>Chaînés : un bandeau continue dans l'univers du précédent</small></span>
+        <div class="seg2" id="linkSeg">
+          <button type="button" data-act="all" data-v="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Chaînés</button>
+          <button type="button" data-act="all" data-v="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg>1 univers / bandeau</button>
+        </div>
+      </div>
+      <div class="row">
+        <span class="lbl">Prix du bandeau<small>Chiffre chaque longueur et le total</small></span>
+        <div class="price-ctl">
+          <div class="chip-input" id="priceWrap"><input id="priceIn" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0,00" aria-label="Prix"><span>€</span></div>
+          <div class="seg2" id="priceSeg">
+            <button type="button" data-act="pmode" data-v="m">par mètre</button>
+            <button type="button" data-act="pmode" data-v="reel">par bobine</button>
+          </div>
+          <div class="chip-input" id="reelWrap"><input id="reelIn" type="number" inputmode="decimal" step="0.5" min="0.1" aria-label="Longueur d'une bobine"><span>m / bobine</span></div>
+        </div>
+      </div>
+      <details>
+        <summary>Avancé</summary>
+        <div class="row">
+          <span class="lbl">LEDs max par univers<small id="maxHint">Vide = automatique</small></span>
+          <div class="chip-input" id="maxWrap"><input id="maxIn" type="number" inputmode="numeric" min="1" max="512" placeholder="auto" aria-label="LEDs max par univers"><span>LEDs</span></div>
+        </div>
+        <div class="row">
+          <span class="lbl">Même valeur pour tous</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="chip-input"><input id="allVal" type="number" inputmode="decimal" step="0.1" min="0" value="5" aria-label="Valeur commune"><button type="button" class="unit" id="allUnit" data-act="allUnit" aria-label="Changer l'unité">m</button></div>
+            <button type="button" class="small-btn" data-act="applyAll">Appliquer</button>
+          </div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section>
+    <h2><span>Bandeaux</span><span class="adv" style="text-transform:none;letter-spacing:0;font-family:var(--f-body)">Touchez un maillon pour lier / délier</span></h2>
+    <div class="strips" id="strips"></div>
+  </section>
+
+  <section>
+    <h2>Occupation des univers</h2>
+    <div class="card unis" id="unis"></div>
+  </section>
+
+  <section>
+    <h2><span>Récapitulatif</span><button type="button" class="small-btn" id="copyBtn2" style="text-transform:none;letter-spacing:0">Copier</button></h2>
+    <div class="card" id="recap"></div>
+  </section>
+
+  <section>
+    <h2>Aperçu lumineux</h2>
+    <div class="preview">
+      <div class="pv-ctrl" id="pvCtrl">
+        <button type="button" class="pv-chip" data-pv="uni">Univers</button>
+        <button type="button" class="pv-chip" data-pv="rainbow">Arc-en-ciel</button>
+        <button type="button" class="pv-chip" data-pv="chase">Chenillard</button>
+        <button type="button" class="pv-chip" data-pv="white">Blanc</button>
+        <button type="button" class="pv-chip" data-pv="color">Couleur</button>
+        <input type="color" id="pvColor" class="pv-color" value="#ff7a1a" aria-label="Couleur de l'aperçu">
+        <label class="pv-int" for="pvInt">Intensité <input type="range" id="pvInt" min="5" max="100" value="85"></label>
+      </div>
+      <div class="pv-wrap"><canvas id="pv"></canvas></div>
+      <p class="pv-note" id="pvNote">Bandeaux à l'échelle, LEDs espacées selon la densité. Le chenillard part de la LED 1 de chaque bandeau.</p>
+    </div>
+  </section>
+
+  <div id="copyFallback" hidden><textarea class="copybox" id="copyText" readonly></textarea></div>
+  <p class="foot">LED coupée autorisée : les 512 canaux sont remplis et une LED peut chevaucher deux univers (✂). Interdite : RGB 170 LEDs par univers, RGBW 128. Un bandeau délié démarre à l'univers et au canal choisis.</p>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const DENS=[30,60,96,120,144];
+const CPP=[{v:1,l:"Mono",s:"1 c"},{v:3,l:"RGB",s:"3 c"},{v:4,l:"RGBW",s:"4 c"},{v:6,l:"RGB 16 bits",s:"6 c"}];
+const KEY="compteur-led-v2";
+const LINK_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>';
+const UNLINK_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.8 13.4 20 12.2a5 5 0 0 0-7-7l-1.2 1.2"/><path d="M5.2 10.6 4 11.8a5 5 0 0 0 7 7l1.2-1.2"/><path d="M8 2v3M2 8h3M16 22v-3M22 16h-3"/></svg>';
+
+let S={n:4,density:60,cpp:3,startUni:1,startAddr:1,maxPix:null,strips:[]};
+try{const t=JSON.parse(localStorage.getItem(KEY)||"null");if(t&&Array.isArray(t.strips))S=Object.assign(S,t);}catch(e){}
+if(!S.strips.length){S.strips=[
+  {mode:"m",len:5,leds:300,link:true,uni:null},
+  {mode:"m",len:5,leds:300,link:true,uni:null},
+  {mode:"led",len:3,leds:180,link:true,uni:null},
+  {mode:"m",len:2.5,leds:150,link:false,uni:10}];}
+
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const fmtM=v=>(Math.round(v*10)/10).toLocaleString("fr-FR",{minimumFractionDigits:1,maximumFractionDigits:1});
+const uCol=k=>`var(--u${((k%8)+8)%8})`;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+const ledsOf=st=>st.mode==="led"?Math.max(0,Math.round(st.leds)):Math.round(st.len*S.density);
+const metersOf=st=>st.mode==="led"?st.leds/S.density:st.len;
+function setMode(st,m){
+  if(st.mode===m)return;
+  if(m==="led"){st.leds=ledsOf(st);}else{st.len=Math.round(st.leds/S.density*10)/10;}
+  st.mode=m;
+}
+
+function syncStrips(){
+  S.n=clamp(S.n|0,1,128);
+  while(S.strips.length<S.n){const l=S.strips[S.strips.length-1]||{mode:"m",len:5,leds:300,link:true};S.strips.push({mode:l.mode,len:l.len,leds:l.leds,link:l.link,uni:null});}
+  S.strips.length=S.n;
+}
+function autoMax(){return Math.floor(512/S.cpp);}
+function maxPix(){const a=autoMax();return S.maxPix?Math.min(S.maxPix,a):a;}
+
+function compute(){
+  const split=S.split!==false;
+  const capCh=split?(S.maxPix?Math.min(512,S.maxPix*S.cpp):512):maxPix()*S.cpp;
+  let u=S.startUni,c=S.startAddr,usedCh=0;
+  const out=[],unis=new Map();
+  S.strips.forEach((st,i)=>{
+    let autoU=null;
+    if(i>0&&!st.link){
+      autoU=(usedCh>0||c>1)?u+1:u;
+      u=st.uni!=null?st.uni:autoU;c=clamp(st.addr||1,1,512);usedCh=0;
+    }
+    const leds=ledsOf(st);
+    let rem=leds*S.cpp,off=0;const segs=[];let guard=0;
+    while(rem>0&&guard++<100000){
+      let avail=Math.min(513-c,capCh-usedCh);
+      if(!split)avail=Math.floor(avail/S.cpp)*S.cpp;
+      if(avail<=0){u++;c=1;usedCh=0;continue;}
+      const take=Math.min(avail,rem);
+      const seg={u,a1:c,a2:c+take-1,ch:take,l1:Math.floor(off/S.cpp)+1,l2:Math.ceil((off+take)/S.cpp),cut:(off+take)%S.cpp!==0,strip:i};
+      segs.push(seg);
+      if(!unis.has(u))unis.set(u,[]);
+      unis.get(u).push(seg);
+      c+=take;usedCh+=take;rem-=take;off+=take;
+    }
+    out.push({leds,segs,autoU,conflict:false});
+  });
+  // chevauchements d'adresses
+  const badU=new Set();
+  unis.forEach((segs,u)=>{
+    const s=[...segs].sort((a,b)=>a.a1-b.a1);
+    for(let k=1;k<s.length;k++)if(s[k].a1<=s[k-1].a2){badU.add(u);out[s[k].strip].conflict=true;out[s[k-1].strip].conflict=true;}
+  });
+  return {strips:out,unis,badU};
+}
+
+function setVal(id,v){const el=$(id);if(document.activeElement!==el)el.value=v;}
+
+function render(){
+  syncStrips();save();
+  const R=compute();
+  setVal("nIn",S.n);setVal("suIn",S.startUni);setVal("saIn",S.startAddr);
+  setVal("maxIn",S.maxPix||"");
+  $("maxHint").textContent=S.split!==false?`Auto : 512 canaux remplis`:`Auto : ${autoMax()} LEDs (${S.cpp} canaux/LED)`;
+  $("splitSeg").children[0].setAttribute("aria-pressed",S.split!==false);
+  $("splitSeg").children[1].setAttribute("aria-pressed",S.split===false);
+  $("maxWrap").classList.toggle("on",!!S.maxPix);
+  const custom=!DENS.includes(S.density);
+  $("densChips").innerHTML=DENS.map(d=>`<button type="button" class="chip" data-act="dens" data-v="${d}" aria-pressed="${d===S.density}">${d}</button>`).join("")+
+    `<label class="chip-input${custom?" on":""}"><input id="densIn" type="number" inputmode="numeric" min="1" max="1000" placeholder="autre" value="${custom?S.density:""}" aria-label="Autre densité"><span>/m</span></label>`;
+  $("cppChips").innerHTML=CPP.map(o=>`<button type="button" class="chip" data-act="cpp" data-v="${o.v}" aria-pressed="${o.v===S.cpp}">${o.l}<small>${o.s}</small></button>`).join("");
+  const links=S.strips.slice(1).map(s=>s.link);
+  $("linkSeg").children[0].setAttribute("aria-pressed",links.length>0&&links.every(Boolean));
+  $("linkSeg").children[1].setAttribute("aria-pressed",links.length>0&&links.every(l=>!l));
+  const allLed=S.allMode==="led";
+  $("allUnit").textContent=allLed?"LEDs":"m";
+  $("allVal").step=allLed?"1":"0.1";
+
+  const maxLed=Math.max(1,...R.strips.map(s=>s.leds));
+  let h="";
+  R.strips.forEach((r,i)=>{
+    const st=S.strips[i];
+    if(i>0){
+      h+=`<div class="joint"><button type="button" class="link${st.link?" on":""}" data-act="link" data-i="${i}" aria-pressed="${st.link}">${st.link?LINK_SVG+`Suit B${i}`:UNLINK_SVG+"Délié · nouvel univers"}</button>`;
+      if(!st.link){
+        const isAuto=st.uni==null;const val=isAuto?r.autoU:st.uni;
+        h+=`<div class="unipick"><span class="lbl">Univers B${i+1}<small>${isAuto?"auto : suivant libre":"choisi"}</small></span>
+          <div class="stepper">
+            <button type="button" data-act="uni" data-i="${i}" data-d="-1" aria-label="Univers précédent pour B${i+1}">−</button>
+            <input id="uni${i}" data-i="${i}" class="uniIn${isAuto?" auto":""}" type="number" inputmode="numeric" min="0" max="63999" value="${val}" aria-label="Univers de départ de B${i+1}">
+            <button type="button" data-act="uni" data-i="${i}" data-d="1" aria-label="Univers suivant pour B${i+1}">+</button>
+          </div>${isAuto?"":`<button type="button" class="autobtn" data-act="uniAuto" data-i="${i}">Auto</button>`}
+          <span class="lbl">Canal</span>
+          <div class="stepper">
+            <button type="button" data-act="addr" data-i="${i}" data-d="-1" aria-label="Canal précédent pour B${i+1}">−</button>
+            <input id="addr${i}" data-i="${i}" class="addrIn" type="number" inputmode="numeric" min="1" max="512" value="${st.addr||1}" aria-label="Canal de départ de B${i+1}">
+            <button type="button" data-act="addr" data-i="${i}" data-d="1" aria-label="Canal suivant pour B${i+1}">+</button>
+          </div></div>`;
+      }
+      h+=`</div>`;
+    }
+    const isLed=st.mode==="led";
+    const w=r.leds?Math.max(3,r.leds/maxLed*100):0;
+    const bars=r.segs.map(s=>`<i style="flex:${s.ch};background-color:${uCol(s.u-S.startUni)}">${s.ch/(maxLed*S.cpp)>.12?`<b>U${s.u}</b>`:""}</i>`).join("");
+    const addr=r.segs.length?r.segs.map(s=>`<span><em style="background:${uCol(s.u-S.startUni)}"></em><strong${R.badU.has(s.u)?' class="warn"':""}>${s.u}/${s.a1}</strong>→${s.a2}<span>(LED ${s.l1}→${s.l2}${s.cut?' <b class="cut">✂ coupée</b>':""})</span></span>`).join(""):"<span>Bandeau vide</span>";
+    const mVal=Math.round(metersOf(st)*100)/100;
+    h+=`<div class="strip">
+      <div class="strip-head">
+        <span class="sname">B${i+1}</span>
+        <div class="spx"><b>${r.leds*S.cpp}</b> canaux${S.price?`<span>${eur(metersOf(st)*ppm())}</span>`:""}</div>
+      </div>
+      <div class="dual">
+        <div class="stepper${isLed?" src":""}">
+          <button type="button" data-act="val" data-f="led" data-i="${i}" data-d="-1" aria-label="Une LED de moins sur B${i+1}">−</button>
+          <input id="led${i}" data-i="${i}" data-f="led" class="valIn" type="number" inputmode="numeric" step="1" min="0" value="${r.leds}" aria-label="Nombre de LEDs de B${i+1}"><span class="u">LEDs</span>
+          <button type="button" data-act="val" data-f="led" data-i="${i}" data-d="1" aria-label="Une LED de plus sur B${i+1}">+</button>
+        </div>
+        <div class="stepper${isLed?"":" src"}">
+          <button type="button" data-act="val" data-f="m" data-i="${i}" data-d="-1" aria-label="Raccourcir B${i+1}">−</button>
+          <input id="m${i}" data-i="${i}" data-f="m" class="valIn" type="number" inputmode="decimal" step="0.1" min="0" value="${mVal}" aria-label="Longueur de B${i+1} en mètres"><span class="u">m</span>
+          <button type="button" data-act="val" data-f="m" data-i="${i}" data-d="1" aria-label="Allonger B${i+1}">+</button>
+        </div>
+      </div>
+      <div class="track"><div class="bar" style="width:${w}%">${bars}</div></div>
+      <div class="addr">${addr}${r.conflict?'<span class="warn">Adresses en conflit</span>':""}</div>
+    </div>`;
+  });
+  $("strips").innerHTML=h;
+
+  const keys=[...R.unis.keys()].sort((a,b)=>a-b);
+  $("unis").innerHTML=keys.length?keys.map(u=>{
+    const segs=R.unis.get(u);const ch=segs.reduce((a,s)=>a+s.a2-s.a1+1,0);
+    const parts=segs.map(s=>`<i style="left:${(s.a1-1)/512*100}%;width:${(s.a2-s.a1+1)/512*100}%;background:${uCol(u-S.startUni)}">${(s.a2-s.a1)/512>.08?"B"+(s.strip+1):""}</i>`).join("");
+    const bad=R.badU.has(u);
+    return `<div class="uni${bad?" bad":""}"><span class="utag" style="background:${uCol(u-S.startUni)}">U${u}</span><div class="utrack">${parts}</div>
+      <div class="uinfo"><span${bad?' class="warn"':""}>${segs.map(s=>`B${s.strip+1} (${s.l1}→${s.l2}${s.cut?"✂":""})`).join(" + ")}${bad?" · conflit":""}</span><span>${Math.min(ch,9999)}/512 c</span></div></div>`;
+  }).join(""):`<div class="uni"><span class="adv">Aucun univers utilisé.</span></div>`;
+
+  const tot=R.strips.reduce((a,s)=>a+s.leds,0);
+  const totM=S.strips.reduce((a,s)=>a+metersOf(s),0);
+  $("sLed").textContent=tot.toLocaleString("fr-FR");
+  $("sUni").textContent=keys.length;
+  $("sUniL").textContent=keys.length?(keys.length>1?`U${keys[0]} → U${keys[keys.length-1]}`:`U${keys[0]}`):"Univers";
+  $("sCh").textContent=(tot*S.cpp).toLocaleString("fr-FR");
+  $("sM").textContent=fmtM(totM);
+  const al=$("alert");
+  if(R.badU.size){al.hidden=false;al.textContent=`Conflit d'adresses dans ${[...R.badU].map(u=>"U"+u).join(", ")} : deux bandeaux occupent les mêmes canaux. Changez l'univers d'un bandeau délié.`;}
+  else al.hidden=true;
+  window._R=R;
+  renderPrice();renderRecap(R,keys);
+  if(typeof pvRefresh==="function")pvRefresh();
+}
+
+function patchText(){
+  const R=window._R;const t=CPP.find(c=>c.v===S.cpp);
+  let s=`Patch bandeaux LED — ${S.density} LEDs/m, ${t.l} (${S.cpp} canaux/LED)\n`;
+  R.strips.forEach((r,i)=>{
+    s+=`B${i+1} · ${fmtM(metersOf(S.strips[i]))} m · ${r.leds} LEDs : `+(r.segs.map(g=>`U${g.u} ${g.a1}-${g.a2} (LED ${g.l1}-${g.l2}${g.cut?", coupée":""})`).join(", ")||"vide")+"\n";
+  });
+  s+=`Total : ${R.strips.reduce((a,x)=>a+x.leds,0)} LEDs sur ${R.unis.size} univers`;
+  if(S.price){const tm=S.strips.reduce((a,x)=>a+metersOf(x),0);s+=`\nCoût : ${eur(tm*ppm())}`+(S.priceMode==="reel"?` (${Math.ceil(tm/S.reelLen-1e-9)} bobine(s) de ${fmtM(S.reelLen)} m = ${eur(Math.ceil(tm/S.reelLen-1e-9)*S.price)} à l'achat)`:"");}
+  if(R.badU.size)s+=`\n⚠ Conflit dans ${[...R.badU].map(u=>"U"+u).join(", ")}`;
+  return s;
+}
+let tt;function toast(m){const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,1800);}
+
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]");if(!b)return;
+  const a=b.dataset.act,d=parseFloat(b.dataset.d),v=b.dataset.v,i=+b.dataset.i;
+  const st=S.strips[i];
+  switch(a){
+    case"n":S.n=clamp(S.n+d,1,128);break;
+    case"su":S.startUni=clamp(S.startUni+d,0,63999);break;
+    case"sa":S.startAddr=clamp(S.startAddr+d,1,513-S.cpp);break;
+    case"dens":S.density=+v;break;
+    case"cpp":S.cpp=+v;if(S.startAddr>513-S.cpp)S.startAddr=513-S.cpp;break;
+    case"pmode":S.priceMode=v;break;
+    case"split":S.split=v==="1";break;
+    case"allUnit":S.allMode=S.allMode==="led"?"m":"led";$("allVal").value=S.allMode==="led"?300:5;break;
+    case"val":
+      if(b.dataset.f==="led"){st.leds=Math.max(0,ledsOf(st)+d);st.mode="led";}
+      else{st.len=Math.max(0,Math.round((metersOf(st)+d*0.5)*10)/10);st.mode="m";}
+      break;
+    case"link":st.link=!st.link;break;
+    case"uni":{const cur=st.uni!=null?st.uni:window._R.strips[i].autoU;st.uni=clamp(cur+d,0,63999);break;}
+    case"uniAuto":st.uni=null;break;
+    case"addr":st.addr=clamp((st.addr||1)+d,1,512);break;
+    case"all":S.strips.forEach((s,k)=>{if(k>0)s.link=v==="1";});break;
+    case"applyAll":{
+      const x=parseFloat(String($("allVal").value).replace(",","."));if(!(x>=0))return;
+      const led=S.allMode==="led";
+      S.strips.forEach(s=>{if(led){s.leds=Math.round(x);s.mode="led";}else{s.len=x;s.mode="m";}});
+      toast(`${S.n} bandeaux à ${led?Math.round(x)+" LEDs":fmtM(x)+" m"}`);break;}
+    default:return;
+  }
+  render();
+});
+document.addEventListener("change",e=>{
+  const el=e.target;const v=parseFloat(String(el.value).replace(",","."));
+  if(el.id==="nIn"&&v>=1)S.n=clamp(Math.round(v),1,128);
+  else if(el.id==="suIn"&&v>=0)S.startUni=clamp(Math.round(v),0,63999);
+  else if(el.id==="saIn"&&v>=1)S.startAddr=clamp(Math.round(v),1,513-S.cpp);
+  else if(el.id==="maxIn")S.maxPix=v>0?Math.round(v):null;
+  else if(el.id==="priceIn")S.price=v>0?Math.round(v*100)/100:null;
+  else if(el.id==="reelIn"){if(v>0)S.reelLen=v;}
+  else if(el.id==="densIn"){if(v>0)S.density=Math.round(v);}
+  else if(el.classList.contains("valIn")&&v>=0){const st=S.strips[+el.dataset.i];if(el.dataset.f==="led"){st.leds=Math.round(v);st.mode="led";}else{st.len=Math.round(v*100)/100;st.mode="m";}}
+  else if(el.classList.contains("addrIn")&&v>=1)S.strips[+el.dataset.i].addr=clamp(Math.round(v),1,512);
+  else if(el.classList.contains("uniIn")&&v>=0)S.strips[+el.dataset.i].uni=clamp(Math.round(v),0,63999);
+  else return;
+  el.blur();render();
+});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.tagName==="INPUT")e.target.blur();});
+$("copyBtn2").addEventListener("click",()=>$("copyBtn").click());
+$("copyBtn").addEventListener("click",()=>{
+  const txt=patchText();
+  const fb=()=>{$("copyFallback").hidden=false;const ta=$("copyText");ta.value=txt;ta.focus();ta.select();toast("Sélectionnez le texte pour le copier");};
+  try{navigator.clipboard.writeText(txt).then(()=>toast("Patch copié"),fb);}catch(err){fb();}
+});
+const eur=v=>v.toLocaleString("fr-FR",{style:"currency",currency:"EUR"});
+function ppm(){if(!S.price)return 0;return S.priceMode==="reel"?S.price/(S.reelLen||5):S.price;}
+function renderPrice(){
+  if(!S.priceMode)S.priceMode="m";if(!S.reelLen)S.reelLen=5;
+  setVal("priceIn",S.price??"");setVal("reelIn",S.reelLen);
+  $("priceWrap").classList.toggle("on",!!S.price);
+  $("priceSeg").children[0].setAttribute("aria-pressed",S.priceMode==="m");
+  $("priceSeg").children[1].setAttribute("aria-pressed",S.priceMode==="reel");
+  $("reelWrap").hidden=S.priceMode!=="reel";
+}
+function renderRecap(R,keys){
+  const kv=(k,v,big)=>`<div class="kv${big?" big":""}"><span>${k}</span><b>${v}</b></div>`;
+  const tot=R.strips.reduce((a,x)=>a+x.leds,0),tm=S.strips.reduce((a,x)=>a+metersOf(x),0);
+  const t=CPP.find(c=>c.v===S.cpp);
+  const cuts=R.strips.reduce((a,x)=>a+x.segs.filter(g=>g.cut).length,0);
+  const linked=S.strips.slice(1).filter(x=>x.link).length;
+  let g1=kv("Bandeaux",S.n)+kv("Longueur totale",fmtM(tm)+" m")+kv("LEDs totales",tot.toLocaleString("fr-FR"),true)+kv("Densité",S.density+" LEDs/m")+kv("Type",`${t.l} · ${S.cpp} c/LED`)+kv("Le plus long",fmtM(Math.max(0,...S.strips.map(metersOf)))+" m");
+  let g2=kv("Canaux",(tot*S.cpp).toLocaleString("fr-FR"),true)+kv("Univers",keys.length+(keys.length?` (U${keys[0]}${keys.length>1?" → U"+keys[keys.length-1]:""})`:""))+kv("Départ",`U${S.startUni} / ${S.startAddr}`)+kv("Liaisons",`${linked} chaîné${linked>1?"s":""} · ${S.n-1-linked} délié${S.n-1-linked>1?"s":""}`)+kv("LED coupée",S.split!==false?`autorisée · ${cuts} coupée${cuts>1?"s":""}`:"interdite")+kv("Conflits",R.badU.size?`<span class="warn">${[...R.badU].map(u=>"U"+u).join(", ")}</span>`:"aucun");
+  let g3="";
+  if(S.price){
+    const cost=tm*ppm();
+    g3=kv("Prix",S.priceMode==="reel"?`${eur(S.price)} / bobine ${fmtM(S.reelLen)} m`:`${eur(S.price)} / m`)+kv("Prix au mètre",eur(ppm()))+kv("Coût des longueurs",eur(cost),true);
+    if(S.priceMode==="reel"){const n=Math.ceil(tm/S.reelLen-1e-9);g3+=kv("Bobines à acheter",n)+kv("Prix d'achat",eur(n*S.price))+kv("Chute",fmtM(n*S.reelLen-tm)+" m");}
+  }else g3=`<div class="kv"><span>Renseignez un prix dans les réglages pour chiffrer chaque longueur.</span></div>`;
+  const rows=R.strips.map((r,i)=>{const st=S.strips[i];const f=r.segs[0],l=r.segs[r.segs.length-1];
+    return `<tr><td>B${i+1}${i>0&&!st.link?" ↯":""}</td><td>${fmtM(metersOf(st))}</td><td>${r.leds}</td><td>${f?f.u+"/"+f.a1:"–"}</td><td>${l?l.u+"/"+l.a2:"–"}</td><td>${r.leds*S.cpp}</td>${S.price?`<td>${eur(metersOf(st)*ppm())}</td>`:""}</tr>`;}).join("");
+  $("recap").innerHTML=`<div class="rc-grid"><div class="rc-g"><h3>Matériel</h3>${g1}</div><div class="rc-g"><h3>DMX</h3>${g2}</div><div class="rc-g"><h3>Coût</h3>${g3}</div></div>
+   <div class="rc-table"><table><thead><tr><th>Bandeau</th><th>m</th><th>LEDs</th><th>Début</th><th>Fin</th><th>Canaux</th>${S.price?"<th>Prix</th>":""}</tr></thead><tbody>${rows}</tbody>
+   <tfoot><tr><td>Total</td><td>${fmtM(tm)}</td><td>${tot}</td><td></td><td></td><td>${tot*S.cpp}</td>${S.price?`<td>${eur(tm*ppm())}</td>`:""}</tr></tfoot></table></div>`;
+}
+
+/* ---------- Aperçu lumineux ---------- */
+const UHEX=["#3b82f6","#22a86e","#e04a4f","#9466ea","#d99a0b","#13a8b8","#d6528f","#7fa61a"];
+const hexRgb=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+const UR=UHEX.map(hexRgb);
+function hueRgb(h){h=((h%360)+360)%360/60;const x=1-Math.abs(h%2-1);const t=[[1,x,0],[x,1,0],[0,1,x],[0,x,1],[x,0,1],[1,0,x]][Math.floor(h)%6];return t.map(v=>v*255);}
+let PV={mode:"uni",color:"#ff7a1a",int:85};
+try{const t=JSON.parse(localStorage.getItem(KEY+"-pv")||"null");if(t)PV=Object.assign(PV,t);}catch(e){}
+const cv=$("pv"),ctx=cv.getContext("2d"),off=document.createElement("canvas"),octx=off.getContext("2d");
+const ROW=30,LBL=30,PADR=12,RULER=24,DS=4;
+let pvData=[],W=300,H=100,dpr=1,raf=0,visible=true;
+const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function pvBuild(){
+  const R=window._R;if(!R)return;
+  pvData=R.strips.map((r,i)=>{
+    const n=r.leds,m=metersOf(S.strips[i]);const u=new Array(n),u2=new Array(n),cut=new Uint8Array(n);
+    r.segs.forEach(sg=>{for(let k=sg.l1;k<=sg.l2&&k<=n;k++){const j=k-1;if(u[j]==null)u[j]=sg.u;else{u2[j]=sg.u;cut[j]=1;}}});
+    return {n,m,u,u2,cut};
+  });
+}
+function pvSize(){
+  dpr=Math.min(window.devicePixelRatio||1,2);
+  W=Math.max(200,cv.clientWidth||cv.parentElement.clientWidth);
+  H=pvData.length*ROW+RULER+6;
+  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.height=H+"px";
+  off.width=Math.ceil(W/DS);off.height=Math.ceil(H/DS);
+}
+function ledRgb(d,k,xm,t){
+  const I=PV.int/100;let c;
+  switch(PV.mode){
+    case"rainbow":c=hueRgb(xm*70-t*0.08);break;
+    case"chase":{const p=(t/1000*2.5)%(d.m+1.2);const dd=p-xm;const b=dd>=0&&dd<0.7?1-dd/0.7:0.04;return [255*b*I,200*b*I,140*b*I];}
+    case"white":c=[255,236,210];break;
+    case"color":c=hexRgb(PV.color);break;
+    default:{
+      if(d.u[k]==null)return [0,0,0];
+      let uu=d.u[k];if(d.cut[k]&&Math.floor(t/450)%2)uu=d.u2[k];
+      c=UR[(((uu-S.startUni)%8)+8)%8];
+    }
+  }
+  return [c[0]*I,c[1]*I,c[2]*I];
+}
+function pvDraw(t){
+  const maxM=Math.max(0.1,...pvData.map(d=>d.m));
+  const sc=(W-LBL-PADR)/maxM;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.globalCompositeOperation="source-over";
+  ctx.fillStyle="#06080a";ctx.fillRect(0,0,W,H);
+  octx.setTransform(1/DS,0,0,1/DS,0,0);
+  octx.fillStyle="#000";octx.fillRect(0,0,W,H);
+  const pts=[];
+  pvData.forEach((d,i)=>{
+    const y=3+i*ROW+ROW/2;const len=d.m*sc;
+    ctx.fillStyle="#5d6670";ctx.font="600 11px "+getComputedStyle(document.body).fontFamily;ctx.textBaseline="middle";ctx.fillText("B"+(i+1),4,y);
+    ctx.fillStyle="#161b21";ctx.fillRect(LBL,y-5,Math.max(len,2),10);
+    if(!d.n)return;
+    const sp=len/d.n;const r=Math.max(0.7,Math.min(3,sp*0.32));
+    for(let k=0;k<d.n;k++){
+      const xm=(k+0.5)/d.n*d.m;const c=ledRgb(d,k,xm,t);
+      if(c[0]+c[1]+c[2]<3)continue;
+      const x=LBL+xm*sc;pts.push(x,y,r,c);
+      octx.fillStyle=`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+      octx.beginPath();octx.arc(x,y,Math.max(r*2.2,DS*0.9),0,6.283);octx.fill();
+    }
+  });
+  // halo : image réduite agrandie en mode additif
+  ctx.imageSmoothingEnabled=true;ctx.globalCompositeOperation="lighter";
+  ctx.globalAlpha=0.9;ctx.drawImage(off,0,0,off.width,off.height,0,0,off.width*DS,off.height*DS);
+  ctx.globalAlpha=0.5;ctx.drawImage(off,0,0,off.width,off.height,-DS,-DS,off.width*DS+2*DS,off.height*DS+2*DS);
+  ctx.globalAlpha=1;
+  // cœurs des LEDs, éclaircis vers le blanc
+  for(let j=0;j<pts.length;j+=4){
+    const x=pts[j],y=pts[j+1],r=pts[j+2],c=pts[j+3];
+    ctx.fillStyle=`rgb(${(c[0]*0.6+c[0]/255*100)|0},${(c[1]*0.6+c[1]/255*100)|0},${(c[2]*0.6+c[2]/255*100)|0})`;
+    if(r<1.4)ctx.fillRect(x-r,y-r,r*2,r*2);else{ctx.beginPath();ctx.arc(x,y,r,0,6.283);ctx.fill();}
+  }
+  ctx.globalCompositeOperation="source-over";
+  // règle en mètres
+  const yR=3+pvData.length*ROW+6;const step=maxM<=3?0.5:maxM<=12?1:maxM<=30?5:10;
+  ctx.strokeStyle="#2a323b";ctx.fillStyle="#6b7580";ctx.font="500 10px "+getComputedStyle(document.body).fontFamily;ctx.textBaseline="top";
+  ctx.beginPath();ctx.moveTo(LBL,yR);ctx.lineTo(LBL+maxM*sc,yR);ctx.stroke();
+  for(let v=0;v<=maxM+1e-6;v+=step){const x=LBL+v*sc;ctx.beginPath();ctx.moveTo(x,yR);ctx.lineTo(x,yR+5);ctx.stroke();
+    const lab=(Math.round(v*10)/10).toLocaleString("fr-FR")+(v===0?"":" m");ctx.textAlign=x>W-24?"right":v===0?"left":"center";ctx.fillText(lab,x,yR+7);}
+  ctx.textAlign="left";
+}
+function pvLoop(t){raf=0;pvDraw(t);if(!reduce&&visible)raf=requestAnimationFrame(pvLoop);}
+function pvStart(){if(!raf){if(reduce)pvDraw(0);else raf=requestAnimationFrame(pvLoop);}}
+function pvRefresh(){pvBuild();pvSize();pvDraw(performance.now());pvStart();pvUi();}
+function pvUi(){
+  document.querySelectorAll("[data-pv]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.pv===PV.mode));
+  $("pvColor").value=PV.color;$("pvInt").value=PV.int;
+  try{localStorage.setItem(KEY+"-pv",JSON.stringify(PV));}catch(e){}
+}
+$("pvCtrl").addEventListener("click",e=>{const b=e.target.closest("[data-pv]");if(!b)return;PV.mode=b.dataset.pv;pvUi();pvStart();if(reduce)pvDraw(0);});
+$("pvColor").addEventListener("input",e=>{PV.color=e.target.value;PV.mode="color";pvUi();if(reduce)pvDraw(0);});
+$("pvInt").addEventListener("input",e=>{PV.int=+e.target.value;pvUi();if(reduce)pvDraw(0);});
+window.addEventListener("resize",()=>{pvSize();pvDraw(performance.now());});
+if("IntersectionObserver" in window){new IntersectionObserver(es=>{visible=es[0].isIntersecting;if(visible)pvStart();}).observe(cv);}
+
+render();
+</script>
+
+</body>
+</html>
